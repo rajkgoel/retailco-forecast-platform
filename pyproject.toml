@@ -1,0 +1,15 @@
+[project]
+name = "retailco-forecast-platform"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "duckdb>=2.0.0",
+    "pandas>=3.1.0",
+    "pandera>=0.35.0",
+    "pyarrow>=26.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
