@@ -19,3 +19,7 @@ s3 = [
 dev = [
     "pytest>=9.1.1",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

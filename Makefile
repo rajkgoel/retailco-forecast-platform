@@ -1,7 +1,7 @@
 DATE ?=
 
 ingest:
-	uv run python src/ingest/ingest.py $(if $(DATE),--date $(DATE))
+	uv run python -m src.ingest.ingest $(if $(DATE),--date $(DATE))
 
 test:
 	uv run pytest
