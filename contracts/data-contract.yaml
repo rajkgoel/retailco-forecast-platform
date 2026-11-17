@@ -1,0 +1,80 @@
+# contracts/data-contract.yaml
+version: 1.0.0                 # bump on any rule change; written into _validation.json
+dataset: m5
+owner: data-platform
+adr: ADR-0004
+
+defaults:
+  row_error_limit: 0.005       # row-level failures above 0.5% of a file escalate to critical
+  nullable: false
+  severity:
+    structure: critical        # missing column, wrong type, duplicate key, volume, hash
+    values: row                # allowed values, ranges, nulls -> quarantine
+
+files:
+      
+  sales_train_evaluation.csv:
+    key: [id]                  # must be unique; duplicates are critical
+    columns:
+      id:       {type: string, pattern: "^.+_evaluation$"}
+      item_id:  {type: string }
+      dept_id:  {type: string, allowed: [FOODS_1, FOODS_2, FOODS_3, HOBBIES_1, HOBBIES_2, HOUSEHOLD_1, HOUSEHOLD_2]}
+      cat_id:   {type: string, allowed: [FOODS, HOBBIES, HOUSEHOLD]}
+      store_id: {type: string, allowed: [CA_1, CA_2, CA_3, CA_4, TX_1, TX_2, TX_3, WI_1, WI_2, WI_3]}
+      state_id: {type: string, allowed: [CA, TX, WI]}
+    day_columns:
+      pattern: "^d_(\\d+)$"
+      contiguous_from: 1       # d_1..d_N, no gaps
+      not_fewer_than_previous: true
+      type: int
+      min: 0
+      quarantine_at: cell      # bad (id, d_N) cells go to quarantine, not the whole series
+    volume:
+      max_row_drop_vs_previous: 0.05   # >5% fewer rows than last validated delivery -> critical
+
+  calendar.csv:
+    key: [date]
+    severity: critical           # one bad row = one whole day for every series; never quarantine
+    columns:
+      date:         {type: date, format: "%Y-%m-%d", contiguous: daily}
+      wm_yr_wk:     {type: int}
+      weekday:      {type: string, allowed: [Saturday, Sunday, Monday, Tuesday, Wednesday, Thursday, Friday]}
+      wday:         {type: int, min: 1, max: 7}      # M5: Saturday = 1
+      month:        {type: int, min: 1, max: 12}
+      year:         {type: int, min: 2011, max: 2099}
+      d:            {type: string, pattern: "^d_(\\d+)$", contiguous_from: 1, unique: true}
+      event_name_1: {type: string, nullable: true}   # open set: new holidays are allowed
+      event_type_1: {type: string, nullable: true, allowed: [Cultural, National, Religious, Sporting]}
+      event_name_2: {type: string, nullable: true}
+      event_type_2: {type: string, nullable: true, allowed: [Cultural, National, Religious, Sporting]}
+      snap_CA:      {type: int, allowed: [0, 1]}
+      snap_TX:      {type: int, allowed: [0, 1]}
+      snap_WI:      {type: int, allowed: [0, 1]}
+    null_together:               # both null or both filled
+      - [event_name_1, event_type_1]
+      - [event_name_2, event_type_2]
+    volume:
+      not_fewer_than_previous: true
+
+  sell_prices.csv:
+    key: [store_id, item_id, wm_yr_wk]
+    columns:
+      store_id:   {type: string, allowed: [CA_1, CA_2, CA_3, CA_4, TX_1, TX_2, TX_3, WI_1, WI_2, WI_3]}
+      item_id:    {type: string}
+      wm_yr_wk:   {type: int}
+      sell_price: {type: float, min: 0.01}
+    volume:
+      not_fewer_than_previous: true
+
+relationships:
+  - name: sales_days_exist_in_calendar
+    from: {file: sales_train_evaluation.csv, columns: day_columns}
+    to:   {file: calendar.csv, columns: [d]}
+    severity: critical         # a day with no date can't be curated at all
+  - name: priced_series_exist_in_sales
+    from: {file: sell_prices.csv, columns: [store_id, item_id]}
+    to:   {file: sales_train_evaluation.csv, columns: [store_id, item_id]}
+  - name: priced_weeks_exist_in_calendar
+    from: {file: sell_prices.csv, columns: [wm_yr_wk]}
+    to:   {file: calendar.csv, columns: [wm_yr_wk]}
+
