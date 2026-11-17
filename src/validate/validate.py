@@ -575,8 +575,12 @@ def main() -> None:
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
-    ingest_date = args.date or _latest_raw_date(args.raw)
-    report = validate(ingest_date, args.raw, args.validated, load_contract(args.contract))
+    try:
+        ingest_date = args.date or _latest_raw_date(args.raw)
+        report = validate(ingest_date, args.raw, args.validated, load_contract(args.contract))
+    except FileNotFoundError as e:
+        log.error("%s", e)
+        sys.exit(2)
 
     for stage in report["stages"]:
         for c in stage["checks"]:

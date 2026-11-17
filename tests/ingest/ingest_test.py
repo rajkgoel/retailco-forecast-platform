@@ -1,4 +1,5 @@
 import hashlib
+import sys
 import json
 from datetime import date, timedelta
 
@@ -137,3 +138,13 @@ def test_incomplete_partition_is_not_used_to_skip(dirs):
 def test_fails_when_landing_has_no_csvs(tmp_path):
     with pytest.raises(FileNotFoundError):
         ingest_mod.ingest(DAY, str(tmp_path), str(tmp_path / "raw"))
+
+def test_main_exits_2_when_partition_exists(dirs, monkeypatch, caplog):
+    landing, raw = dirs
+    ingest_mod.ingest(DAY, str(landing), str(raw))
+    monkeypatch.setattr(sys, "argv", ["ingest", "--date", DAY.isoformat(),
+                                      "--landing", str(landing), "--raw", str(raw)])
+    with pytest.raises(SystemExit) as exc:
+        ingest_mod.main()
+    assert exc.value.code == 2
+    assert "pass --force" in caplog.text

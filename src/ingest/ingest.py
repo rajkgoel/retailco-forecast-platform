@@ -10,6 +10,7 @@ import hashlib
 import json
 import logging
 import os
+import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -147,7 +148,11 @@ def main() -> None:
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
-    status, manifest = ingest(args.date, args.landing, args.raw, args.force)
+    try:
+        status, manifest = ingest(args.date, args.landing, args.raw, args.force)
+    except (FileExistsError, FileNotFoundError) as e:
+        log.error("%s", e)
+        sys.exit(2)
     if status == "skipped":
         print(f"landing files are identical to ingest_date={manifest['ingest_date']}; nothing to do")
         return

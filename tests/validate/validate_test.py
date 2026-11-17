@@ -1,5 +1,6 @@
 import hashlib
 import io
+import sys
 import json
 from datetime import date, timedelta
 
@@ -495,3 +496,28 @@ def test_require_validated_without_report(p):
     p.deliver()
     with pytest.raises(v.NotValidated, match="has not been validated"):
         v.require_validated(DAY, str(p.raw), str(p.validated))
+
+def run_main(p, monkeypatch, day=DAY) -> int:
+    monkeypatch.setattr(sys, "argv", ["validate", "--date", day.isoformat(),
+                                      "--raw", str(p.raw), "--validated", str(p.validated)])
+    with pytest.raises(SystemExit) as exc:
+        v.main()
+    return exc.value.code
+
+
+def test_main_exits_2_when_partition_is_missing(p, monkeypatch, caplog):
+    assert run_main(p, monkeypatch) == 2
+    assert "no valid manifest" in caplog.text
+
+
+def test_main_exits_1_when_validation_fails(p, monkeypatch, capsys):
+    p.deliver(sales_train_evaluation__csv=SALES + SALES.splitlines()[1] + "\n")   # duplicate id
+    assert run_main(p, monkeypatch) == 1
+    assert "FAILED at stage keys_volume" in capsys.readouterr().out
+
+
+def test_main_exits_0_when_validation_passes(p, monkeypatch):
+    p.deliver()
+    assert run_main(p, monkeypatch) == 0
+
+    

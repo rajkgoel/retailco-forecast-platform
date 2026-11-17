@@ -89,7 +89,7 @@ data/validated/m5/ingest_date=YYYY-MM-DD/
     quarantine/*.parquet        # only when the run passes and some rows or cells were quarantined
 ```
 
-- **Exit code:** `0` if the run passed, `1` if it failed. Failed checks are printed to the console.
+- **Exit codes** (ingest and validate): `0` success, `1` validation ran and rejected the data, `2` could not run (partition already exists, no manifest, missing file). Retry `2` after fixing the setup; alert on `1`.
 - **Severity:** row-level failures above `row_error_limit` (0.5%) of a file are escalated to critical. Any failure in `calendar.csv` is always critical.
 - **Downstream steps** must call `require_validated()`. It rejects a partition that failed validation, was never validated, or was rebuilt with `ingest --force` afterwards.
 - **Contract changes:** bump `version` in the contract whenever you change a rule.
